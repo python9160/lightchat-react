@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <link rel="stylesheet" type="text/css" href="/style.css" />
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="A simple real-time chat app! Create public or private rooms with invite links to make rooms in which you can talk to your friends!"
+    />
+
+    <meta property="og:title" content="LightChat" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://lightchat.ml" />
+    <meta property="og:description" content="A simple real-time chat app!" />
+    <meta
+      property="og:image"
+      content="https://cdn.glitch.com/11998fd5-409b-4fca-a81b-3327324e7c93%2Fa4ee71f481b6445da1cf88f8e4cd3983.png?v=1626225572793"
+    />
+    <meta name="theme-color" content="#66C0FF" />
+
+    <link
+      rel="icon"
+      type="image/png"
+      href="https://cdn.glitch.com/11998fd5-409b-4fca-a81b-3327324e7c93%2Fa4ee71f481b6445da1cf88f8e4cd3983%20(1).png?v=1626225577574"
+    />
+
+    <title>LightChat</title>
+  </head>
+  <body>
+    <div id="chatElementsContainer">
+      <ul id="messages"></ul>
+      <form id="messageForm" action="IF_UR_SEEING_THIS_WE_MESSED_UP">
+        <input id="messageInput" autocomplete="off" />
+        <button>Send</button>
+      </form>
+    </div>
+    <div id="sidebar-div">
+      <button onclick="location.href=location.href">Leave Room</button>
+      <br />
+      <table id="sidebar-div-ul">
+        <tr>
+          <th>Users:</th>
+        </tr>
+        <tr>
+          <td>SYSTEM</td>
+        </tr>
+        <tr>
+          <td>You</td>
+        </tr>
+        <tr>
+          <td>Me</td>
+        </tr>
+      </table>
+    </div>
+    <div id="info">
+      <h1 id="top">Welcome to LightChat!<br /></h1>
+    </div>
+    <noscript>
+      <div class="javascriptNotEnabledWarning">
+        <span style="font-size: 64px">You don't have JavaScript enabled.</span>
+        <br />
+        <span style="font-size: 30px"
+          >Since this uses JavaScript to /receive messages from the server, you
+          won't be able to use it until you enable JavaScript.</span
+        >
+      </div>
+      <style type="text/css">
+        #chatElementsContainer {
+          display: none;
+        }
+        #joinViaInvite {
+          display: none;
+        }
+        #joinOrMake {
+          display: none;
+        }
+      </style>
+    </noscript>
+    <div class="flex-container" id="joinViaInvite">
+      <form id="joinViaInviteForm">
+        <p id="youHaveBeenInvited"></p>
+        <div id="JVIusername">
+          <b>Enter Username:</b><br />
+          <input id="usernameWhenInvited" />
+        </div>
+        <button id="JVIjoin">Join</button>
+      </form>
+    </div>
+    <div class="flex-container" id="joinOrMake">
+      <div>
+        <b>Enter Username:</b><br />
+        <input id="username" />
+      </div>
+      <br />
+
+      <div class="flex-container-publicRooms">
+        <div>
+          <b>Make Public Room</b>
+          <form id="makePublicRoom" action="/">
+            What do you want to name the public room?
+            <input id="publicRoomName" autocomplete="off" /><br />
+            <button>Make Public Room</button>
+          </form>
+        </div>
+        <div id="publicRooms">
+          <h4>Public Rooms</h4>
+          <ul id="publicRoomList"></ul>
+        </div>
+      </div>
+      <div class="flex-container-privateRooms">
+        <div>
+          <b>Join Private Room</b><br /><br />
+          <form id="joinRoom" action="/">
+            Enter room name:
+            <input id="joiningRoomName" autocomplete="off" /><br /><br />
+            Enter room code/password:
+            <input id="joiningRoomCode" autocomplete="off" /><br />
+            <button>Join</button>
+          </form>
+        </div>
+        <div>
+          <b>Make Private Room</b><br /><br />
+          <form id="makeRoom" action="/">
+            What do you want to name the room?
+            <input id="roomName" autocomplete="off" /><br />
+            <br />
+            Room password?
+            <input id="roomPassword" autocomplete="off" /><br />
+            <button>Make</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    
+    <script>
+            var ping = new Audio(
+              "https://cdn.glitch.com/11998fd5-409b-4fca-a81b-3327324e7c93%2Fding.wav?v=1626265227101"
+            );
+
+            var socket = io();
+
+            var inviteCode = "";
+
+            if (localStorage.getItem("allowsNotifs") === null) {
+              localStorage.setItem("allowsNotifs", "false");
+            }
+
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has("inviteCode")) {
+              inviteCode = urlParams.get("inviteCode");
+              socket.emit("getRoomNameFromInvite", inviteCode);
+              document.getElementById("joinOrMake").style.display = "none";
+              document.getElementById("info").style.display = "none";
+            }
+
+            window.onload = function () {
+              var username = localStorage.getItem("username");
+              if (localStorage.getItem("username")) {
+                document.getElementById("username").value = username;
+                document.getElementById("usernameWhenInvited").value = username;
+              }
+            };
+
+            var joinRoom = document.getElementById("joinRoom");
+            var makeRoom = document.getElementById("makeRoom");
+            var makePublicRoom = document.getElementById("makePublicRoom");
+            var joinViaInviteForm = document.getElementById("joinViaInviteForm");
+            var messageForm = document.getElementById("messageForm");
+            var messageInput = document.getElementById("messageInput");
+
+            var isOnTab = document.visibilityState === "visible";
+
+            document.addEventListener("visibilitychange", function () {
+              isOnTab = document.visibilityState === "visible";
+            });
+
+            joinRoom.addEventListener("submit", function (e) {
+              e.preventDefault();
+              var joiningRoomName = document.getElementById("joiningRoomName").value;
+              var joiningRoomCode = document.getElementById("joiningRoomCode").value;
+              var username = document.getElementById("username").value || "Unnamed";
+              if (document.getElementById("username").value) {
+                localStorage.removeItem("username");
+                localStorage.setItem(
+                  "username",
+                  document.getElementById("username").value
+                );
+              }
+              socket.emit("joinRoom", joiningRoomName, joiningRoomCode, username);
+              document.getElementById("joiningRoomName").value = "";
+              document.getElementById("joiningRoomCode").value = "";
+              document.getElementById("username").value = "";
+            });
+
+            makeRoom.addEventListener("submit", function (e) {
+              e.preventDefault();
+              var roomName = document.getElementById("roomName").value;
+              var roomPassword = document.getElementById("roomPassword").value;
+              var username = document.getElementById("username").value || "Unnamed";
+              if (document.getElementById("username").value) {
+                localStorage.removeItem("username");
+                localStorage.setItem(
+                  "username",
+                  document.getElementById("username").value
+                );
+              }
+              socket.emit("makeRoom", roomName, roomPassword, username);
+              document.getElementById("roomName").value = "";
+              document.getElementById("roomPassword").value = "";
+              document.getElementById("username").value = "";
+            });
+
+            makePublicRoom.addEventListener("submit", function (e) {
+              e.preventDefault();
+              var publicRoomName = document.getElementById("publicRoomName").value;
+              var username = document.getElementById("username").value || "Unnamed";
+              if (document.getElementById("username").value) {
+                localStorage.removeItem("username");
+                localStorage.setItem(
+                  "username",
+                  document.getElementById("username").value
+                );
+              }
+              socket.emit("makePublicRoom", publicRoomName, username);
+              document.getElementById("publicRoomName").value = "";
+              document.getElementById("username").value = "";
+            });
+
+            joinViaInviteForm.addEventListener("submit", function (e) {
+              e.preventDefault();
+
+              var username =
+                document.getElementById("usernameWhenInvited").value || "Unnamed";
+              if (document.getElementById("usernameWhenInvited").value) {
+                localStorage.removeItem("usernameWhenInvited");
+                localStorage.setItem(
+                  "username",
+                  document.getElementById("usernameWhenInvited").value
+                );
+              }
+
+              socket.emit("joinRoomWithInvite", inviteCode, username);
+            });
+
+            socket.on("errorAlert", function (message) {
+              Swal.fire({
+                icon: "error",
+                title: "Error",
+                text: message,
+              });
+            });
+
+            socket.on("verifyAdmin", () => {
+              let val = window.prompt("Enter ADMIN_CODE: ", "Enter code here");
+              socket.emit("adminCheck", val);
+            });
+
+            socket.on("leave", () => {
+              window.alert("You have been kicked from the room.");
+
+              location.reload();
+            });
+
+            socket.on("vaResponse", (res) => {
+              if (!res) {
+                Swal.fire({
+                  icon: "error",
+                  title: "Incorrect Code",
+                  text: "Please try again. The code is incorrect.",
+                });
+              }
+            });
+
+            socket.on("changeTitle", function (newTitle) {
+              document.title = newTitle + " | LightChat Rooms";
+            });
+
+            socket.on("removeOtherElements", function () {
+              document.getElementById("joinOrMake").style.display = "none";
+              document.getElementById("joinViaInvite").style.display = "none";
+              document.getElementById("info").style.display = "none";
+
+              document.getElementById("chatElementsContainer").style.display =
+                "block";
+
+              window.scrollTo(0, 0);
+              addCss("/chatPage.css");
+            });
+
+            socket.emit("getPersistentRooms");
+
+            socket.emit("getPublicRooms");
+            socket.on("addRoomToList", function (publicRoomName, onlineMembers) {
+              var ul = document.getElementById("publicRoomList");
+              var div = document.createElement("div");
+              var li = document.createElement("li");
+              li.innerHTML = publicRoomName + " <br> " + onlineMembers + " online";
+              var btn = document.createElement("button");
+              btn.innerHTML = "Join";
+
+              div.appendChild(li);
+              div.appendChild(btn);
+
+              btn.addEventListener("click", () => {
+                var username = document.getElementById("username").value || "Unnamed";
+                if (document.getElementById("username").value) {
+                  localStorage.removeItem("username");
+                  localStorage.setItem(
+                    "username",
+                    document.getElementById("username").value
+                  );
+                }
+                socket.emit("joinRoom", publicRoomName, "publicRoom", username);
+              });
+
+              ul.appendChild(div);
+            });
+
+            socket.on("newMessage", function (message, displayOptions, socketId) {
+              let newMessageElement = document.createElement("li");
+              let messageDiv = document.createElement("div");
+              let usernameDiv = document.createElement("div");
+
+              let usernameColor = displayOptions.usernameColor;
+              let username = displayOptions.username;
+              let messageColor = displayOptions.messageColor;
+
+              usernameDiv.style.display = "inline-block";
+              usernameDiv.style.color = usernameColor;
+              usernameDiv.style.fontWeight = "bold";
+              usernameDiv.textContent = username;
+
+              messageDiv.style.display = "inline-block";
+              messageDiv.style.color = messageColor;
+              messageDiv.textContent += message;
+
+              if (displayOptions.admin) {
+                let admin = document.createElement("div");
+                admin.style.display = "inline-block";
+                admin.style.color = usernameColor;
+                admin.style.fontStyle = "italic";
+                admin.innerHTML = "(ADMIN)&nbsp;&nbsp;";
+
+                newMessageElement.append(admin);
+              }
+              newMessageElement.append(usernameDiv);
+              newMessageElement.append(": ");
+              newMessageElement.append(messageDiv);
+
+              console.log(newMessageElement.innerHTML);
+              messages.appendChild(newMessageElement);
+              window.scrollTo(0, document.body.scrollHeight);
+
+              usernameDiv.addEventListener("click", (e) => {
+                alert(socketId);
+
+                navigator.clipboard.writeText(socketId);
+              });
+
+              if (
+                Notification.permission === "granted" &&
+                socketId !== socket.id &&
+                !isOnTab &&
+                localStorage.getItem("allowsNotifs") == "true"
+              ) {
+                new Notification(displayOptions.username, {
+                  body: message,
+                  icon: "https://cdn.glitch.com/11998fd5-409b-4fca-a81b-3327324e7c93%2Fa4ee71f481b6445da1cf88f8e4cd3983.png?v=1626225572793",
+                });
+              }
+            });
+
+            socket.on("ping", function () {
+              if (!isOnTab) {
+                ping.play();
+              }
+            });
+
+            socket.on("systemMessage", function (message) {
+              if (message.command == "!help") {
+                let newMessageElement = document.createElement("li");
+
+                let div = document.createElement("div");
+                div.style.display = "inline-block";
+                div.style.fontWeight = "bold";
+                div.textContent = "SYSTEM: Requested by " + message.data.username;
+
+                let tableDiv = document.createElement("div");
+                tableDiv.innerHTML = message.data.helpMessage;
+
+                newMessageElement.appendChild(div);
+                newMessageElement.appendChild(tableDiv);
+
+                messages.appendChild(newMessageElement);
+                window.scrollTo(0, document.body.scrollHeight);
+              } else if (message.command == "!setColor") {
+                if (message.data.failed) {
+                  let newMessageElement = document.createElement("li");
+
+                  newMessageElement.style.fontWeight = "bold";
+                  newMessageElement.textContent =
+                    "SYSTEM: Invalid Hex Code/Color Name";
+
+                  messages.appendChild(newMessageElement);
+                  window.scrollTo(0, document.body.scrollHeight);
+                } else {
+                  let newMessageElement = document.createElement("li");
+
+                  let div = document.createElement("div");
+                  div.style.fontWeight = "bold";
+                  div.textContent =
+                    "SYSTEM: " +
+                    message.data.username +
+                    " has changed their username color to " +
+                    message.data.newColor;
+
+                  newMessageElement.appendChild(div);
+
+                  messages.appendChild(newMessageElement);
+                  window.scrollTo(0, document.body.scrollHeight);
+                }
+              } else if (message.command == "!color") {
+                if (message.data.failed) {
+                  let newMessageElement = document.createElement("li");
+
+                  newMessageElement.style.fontWeight = "bold";
+                  newMessageElement.textContent =
+                    "SYSTEM: Invalid Hex Code/Color Name";
+
+                  messages.appendChild(newMessageElement);
+                  window.scrollTo(0, document.body.scrollHeight);
+                }
+              } else if (message.command == "!users") {
+                let newMessageElement = document.createElement("li");
+
+                let div1 = document.createElement("div");
+                let div2 = document.createElement("div");
+                let div3 = document.createElement("div");
+
+                newMessageElement.style.fontWeight = "bold";
+                div1.textContent =
+                  "SYSTEM: Requested by " +
+                  JSON.stringify(message["data"]["username"]);
+                div2.textContent =
+                  "There are " +
+                  JSON.stringify(message["data"]["onlineUsers"]) +
+                  " users online in this room.";
+                div3.textContent =
+                  "They are: " + JSON.stringify(message["data"]["onlineUsersNames"]);
+
+                newMessageElement
+                  .appendChild(div1)
+                  .parentNode.appendChild(div2)
+                  .parentNode.appendChild(div3);
+
+                messages.appendChild(newMessageElement);
+                window.scrollTo(0, document.body.scrollHeight);
+              } else if (message.command == "!invite") {
+                if (message.data.public) {
+                  let newMessageElement = document.createElement("li");
+
+                  let div = document.createElement("div");
+                  let div2 = document.createElement("div");
+                  let div3 = document.createElement("div");
+
+                  newMessageElement.style.fontWeight = "bold";
+                  div2.style.display = "inline-block";
+                  div3.style.display = "inline-block";
+
+                  div.textContent =
+                    "SYSTEM: Requested by " + message.data.username + ":";
+                  div2.textContent =
+                    "This is a public room with the name " +
+                    message.data.currentRoom +
+                    " and the invite link:⠀";
+
+                  div3.innerHTML =
+                    "<a href='" +
+                    message.data.inviteLink +
+                    "'>" +
+                    message.data.inviteLink +
+                    "</a>";
+
+                  div3.firstChild.style.color = "#aaaaaa";
+
+                  newMessageElement.appendChild(div);
+                  newMessageElement.appendChild(div2);
+                  newMessageElement.appendChild(div3);
+
+                  messages.appendChild(newMessageElement);
+                  window.scrollTo(0, document.body.scrollHeight);
+                } else {
+                  let newMessageElement = document.createElement("li");
+
+                  let div = document.createElement("div");
+                  let div2 = document.createElement("div");
+                  let div3 = document.createElement("div");
+
+                  newMessageElement.style.fontWeight = "bold";
+                  div2.style.display = "inline-block";
+                  div3.style.display = "inline-block";
+
+                  div.textContent =
+                    "SYSTEM: Requested by " + message.data.username + ":";
+                  div2.textContent =
+                    "This is a room with the name " +
+                    message.data.currentRoom +
+                    " and the invite link:⠀";
+
+                  div3.innerHTML =
+                    "<a href='" +
+                    message.data.inviteLink +
+                    "'>" +
+                    message.data.inviteLink +
+                    "</a>";
+
+                  div3.firstChild.style.color = "#aaaaaa";
+
+                  newMessageElement.appendChild(div);
+                  newMessageElement.appendChild(div2);
+                  newMessageElement.appendChild(div3);
+
+                  messages.appendChild(newMessageElement);
+                  window.scrollTo(0, document.body.scrollHeight);
+                }
+              } else if (message.command == "disconnect") {
+                let newMessageElement = document.createElement("li");
+
+                newMessageElement.style.fontWeight = "bold";
+                newMessageElement.textContent =
+                  "SYSTEM: " + message.data.username + " has disconnected.";
+
+                messages.appendChild(newMessageElement);
+                window.scrollTo(0, document.body.scrollHeight);
+              } else if (message.command == "!setUsername") {
+                let newMessageElement = document.createElement("li");
+
+                newMessageElement.style.fontWeight = "bold";
+                newMessageElement.textContent =
+                  "SYSTEM: " +
+                  message.data.oldUsername +
+                  " has changed their username to " +
+                  message.data.newUsername;
+
+                messages.appendChild(newMessageElement);
+                window.scrollTo(0, document.body.scrollHeight);
+              } else if (message.command == "!whois") {
+                let nme = document.createElement("li");
+                nme.style.fontWeight = "bold";
+
+                let div = document.createElement("div");
+
+                let system = document.createElement("div");
+                system.textContent = `SYSTEM: `;
+
+                let sID = document.createElement("div");
+                sID.textContent = `socketID: ${message.data.socketID}`;
+
+                let username = document.createElement("div");
+                username.textContent = `Username: ${message.data.username}`;
+
+                let color = document.createElement("div");
+                color.textContent = `Color: ${message.data.usernameColor || "white"}`;
+
+                let admin = document.createElement("div");
+                admin.textContent = `Admin: ${message.data.admin ? "Yes" : "No"}`;
+
+                div
+                  .appendChild(system)
+                  .parentNode.appendChild(sID)
+                  .parentNode.appendChild(username)
+                  .parentNode.appendChild(color)
+                  .parentNode.appendChild(admin);
+
+                nme.appendChild(div);
+
+                messages.appendChild(nme);
+                window.scrollTo(0, document.body.scrollHeight);
+              } else if (message.command == "default") {
+                let nme = document.createElement("li");
+
+                nme.style.fontWeight = "bold";
+                nme.textContent = "SYSTEM: " + message.data;
+
+                messages.appendChild(nme);
+                window.scrollTo(0, document.body.scrollHeight);
+              }
+            });
+
+            socket.on("welcomeMessage", function (username) {
+              let newMessageElement = document.createElement("li");
+
+              newMessageElement.style.fontWeight = "bold";
+
+              newMessageElement.textContent =
+                "SYSTEM:  Welcome " +
+                username +
+                "! Use !invite to generate an invite link to this room to send to your friends! Use !help to get a list of all commands!";
+
+              messages.appendChild(newMessageElement);
+              window.scrollTo(0, document.body.scrollHeight);
+            });
+
+            messageForm.addEventListener("submit", function (e) {
+              e.preventDefault();
+              if (messageInput.value.trim()) {
+                if (messageInput.value.toLowerCase() === "!notifs") {
+                  // function to actually ask the permissions
+                  function handlePermission(permission) {
+                    // set the button to shown or hidden, depending on what the user answers
+
+                    if (localStorage.getItem("allowsNotifs") == "false") {
+                      localStorage.setItem("allowsNotifs", "true");
+
+                      new Notification("Lightchat", {
+                        body: "This is a Notification",
+                        icon: "https://cdn.glitch.com/11998fd5-409b-4fca-a81b-3327324e7c93%2Fa4ee71f481b6445da1cf88f8e4cd3983.png?v=1626225572793",
+                      });
+                    } else if (localStorage.getItem("allowsNotifs") == "true") {
+                      localStorage.setItem("allowsNotifs", "false");
+                      new Notification("Lightchat", {
+                        body: "You will not receive any more notifications",
+                        icon: "https://cdn.glitch.com/11998fd5-409b-4fca-a81b-3327324e7c93%2Fa4ee71f481b6445da1cf88f8e4cd3983.png?v=1626225572793",
+                      });
+                    }
+                  }
+
+                  // Let's check if the browser supports notifications
+                  if (!("Notification" in window)) {
+                    alert("This browser does not support notifications.");
+                  } else {
+                    Notification.requestPermission(function (permission) {
+                      handlePermission(permission);
+                    });
+                  }
+                } else if (messageInput.value.toLowerCase() === "!leave") {
+                  let leaveP = window.prompt(
+                    "Type LEAVE to leave this room: ",
+                    "LEAVE"
+                  );
+                  if (leaveP === "LEAVE") {
+                    location.reload();
+                  }
+                }
+                socket.emit("newMessage", messageInput.value, messageInput.value);
+                messageInput.value = "";
+              }
+            });
+
+            socket.on("outputRoomNameFromInvite", function (roomName) {
+              if (roomName === null) {
+                let x = 5;
+                document.getElementById("JVIusername").style.display = "none";
+                document.getElementById("JVIjoin").style.display = "none";
+                document.getElementById("joinViaInvite").style.display = "flex";
+                var countdown = setInterval(function () {
+                  if (x > 0) {
+                    document.getElementById("youHaveBeenInvited").innerHTML =
+                      "The invite link that you used is invalid. You will be redirected to the main page in " +
+                      x +
+                      " seconds.";
+                  } else {
+                    clearInterval(countdown);
+                    document.location = window.loacation.hostname;
+                  }
+                  x--;
+                }, 1000);
+              } else {
+                // hide the loading screen
+
+                document.getElementById("joinViaInvite").style.display = "flex";
+                document.getElementById("youHaveBeenInvited").innerHTML =
+                  "You have been invited to the room <b>" +
+                  roomName +
+                  "</b><br>" +
+                  'Set your username and then click the "Join" button to join.';
+              }
+            });
+            socket.on("playAudio", (link) => {
+              new Audio(link).play();
+            });
+
+            socket.on("redirect", (proxy) => {
+              window.location.href = proxy;
+            });
+
+
+            function addCss(fileName) {
+              var head = document.head;
+              var link = document.createElement("link");
+
+              link.type = "text/css";
+              link.rel = "stylesheet";
+              link.href = fileName;
+
+              head.appendChild(link);
+            }
+    </script>
+    <!-- Main Script -->
+  </body>
+</html>
