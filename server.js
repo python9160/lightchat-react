@@ -42,8 +42,8 @@ class Message {
 // defining what is a member
 class Member { 
   constructor(name, id) {
-    this.name = member.name; 
-    this.id = member.id;
+    this.name = name; 
+    this.id = id;
   }
   
   
